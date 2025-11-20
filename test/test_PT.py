@@ -19,16 +19,16 @@ def test_log_p():
 Beta_max = 1.0
 Beta_min = 0.01
 
-def test_generate_temperature_ladder():
+def test_generate_betas():
     '''
     Check the length of generated array
     Check the increasing order of generated array
     Check the equi-logspace
     '''
-    assert len(generate_temp_ladder(10, Beta_min, Beta_max)) == 10
-    assert len(generate_temp_ladder(20, Beta_max, Beta_min)) == 20
+    assert len(generate_betas(10, Beta_min, Beta_max)) == 10
+    assert len(generate_betas(20, Beta_max, Beta_min)) == 20
 
-    Temps = generate_temp_ladder(10,Beta_min, Beta_max)
+    Temps = generate_betas(10,Beta_min, Beta_max)
     for i in range(9):
         assert Temps[i] <= Temps[i+1]
     
@@ -39,7 +39,7 @@ def test_parallel_tempering():
     '''
     test the length of generated array
     '''
-    Betas = generate_temp_ladder(10,Beta_min, Beta_max)
+    Betas = generate_betas(10,Beta_min, Beta_max)
     assert len(parallel_tempering(10, Betas)) == 10
     assert len(parallel_tempering(20, Betas)) == 20
         
