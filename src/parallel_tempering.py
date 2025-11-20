@@ -67,9 +67,9 @@ def parallel_tempering(n_steps, betas, std = 0.5):
             # calculate the ratio to accept the new state x
             # criterion is 
             # e^[-beta*V(x)]/e^[-beta*V(x_i)] = e^[-beta*(V(x)-V(x_i))]
-            accept_ratio = np.min(log_p(x,beta) - log_p(x_current,beta), 0)
+            accept_ratio = log_p(x,beta) - log_p(x_current,beta)
 
-            if np.log(np.random.rand()) < accept_ratio:
+            if np.log(np.random.rand()) < np.min(accept_ratio,0):
                 states[i] = x
         
         # swap: Picks two adjacent chains i and j=i+1. 
@@ -84,9 +84,9 @@ def parallel_tempering(n_steps, betas, std = 0.5):
             # so we do not need to worry the sign of swap_ratio
             # criterion is similar to previous, i.e.
             # = ... = e^(beta_i - beta_j)(V(x_i) - V(x_j))
-            swap_ratio = np.min((beta_i - beta_j)*(V(x_i) - V(x_j), 0)
-)
-            if np.log(np.random.rand()) < swap_ratio:
+            swap_ratio = (beta_i - beta_j)*(V(x_i) - V(x_j))
+
+            if np.log(np.random.rand()) < np.min(swap_ratio,0):
                 states[i], states[i+1] = x_j, x_i
         
         # Appends current states to their respective chains.
