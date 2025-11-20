@@ -66,7 +66,7 @@ def parallel_tempering(n_steps, betas, std = 0.5):
             x = x_current + np.random.normal(0, std)
             # calculate the ratio to accept the new state x
             # criterion is 
-            # e^[-beta*(V(x) - V(x_i)]
+            # e^[-beta*V(x)]/e^[-beta*V(x_i)] = e^[-beta*(V(x)-V(x_i))]
             accept_ratio = np.min(log_p(x,beta) - log_p(x_current,beta), 0)
 
             if np.log(np.random.rand()) < accept_ratio:
@@ -82,8 +82,8 @@ def parallel_tempering(n_steps, betas, std = 0.5):
 
             # because we will compare it with log(uniform(0,1)),
             # so we do not need to worry the sign of swap_ratio
-            # criterion is 
-            # e^(beta_i - beta_j)(V(x_i) - V(x_j))
+            # criterion is similar to previous, i.e.
+            # = ... = e^(beta_i - beta_j)(V(x_i) - V(x_j))
             swap_ratio = np.min((beta_i - beta_j)*(V(x_i) - V(x_j), 0)
 )
             if np.log(np.random.rand()) < swap_ratio:
