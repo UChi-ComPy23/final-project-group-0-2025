@@ -57,7 +57,7 @@ def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
     n_chains = len(betas)
 
     if n_steps <= n_burns:
-        return ValueError('n_burns should be smaller than n_steps!')
+        raise ValueError('n_burns should be smaller than n_steps!')
     # set a initial state x for each beta by uniform distribution.
     states = np.random.uniform(low=-b, high=b, size=n_chains)
 

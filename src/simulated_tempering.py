@@ -40,8 +40,23 @@ def generate_betas(n, beta_min, beta_max):
     return betas[::-1]
 # ===================================================================
 
-def simulated_Tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
-    ''''''
+def simulated_tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
+    '''
+    Performs the Simulated Tempering MCMC, 
+    tracking results in a 1D array.
+    finally generate the x_i after burn-in steps
+
+    n_steps: number of steps in each chain of beta
+    n_burn: number of steps for burn-in, smaller than n_steps
+    betas: the arrays of betas(Inverse of Temperature)
+    b: boundary [-b,b] for initial state x
+    V: potential function V(x)
+    df_std: the default standard deviation
+    freq: frequency of adjusting the pesudo prior weights
+    '''
+    if n_steps <= n_burns:
+        raise ValueError('n_burns should be smaller than n_steps!')
+    
     n_betas = len(betas) # the number of beta
     x_current = np.random.uniform(low=-b, high=b) # initial state X_0
     k_current = 0 # initial index for list 'betas'
@@ -49,12 +64,14 @@ def simulated_Tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
     # Apply Pesudo-prior weights to ensures all temperatures ladders 
     # are visited equally often
     # initial them uniformly
-    w = np.ones(n_betas)
+    w = np.ones(n_betas) / n_betas
     # count visited temperature 
     temps_visited = np.zeros(n_betas)
 
     # initial MC chain X
     X = np.zeros(n_steps, dtype=np.float64)
+    # track which beta each sample came from
+    betas_indice = np.zeros(n_steps, dtype=np.int64)
 
     # Define log of r(k,l)
     def log_r(k,l):
@@ -64,16 +81,12 @@ def simulated_Tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
         r(0,1) = r(n_betas-1, n_betas-2) = 1,
         where r,l is the index of betas.
         '''
-        if k == 0:
-            return 0 if l == 1 else -np.inf
-        elif k == n_betas - 1:
-            return 0 if l == n_betas-2 else -np.inf
-        else:
-            if l == k + 1 or l == k - 1:
-                return np.log(1/2)
-            else:
-                return -np.inf
-    
+        if np.abs(k-l) != 1:
+            return -np.inf
+        if (k == 0 and l == 1) or (k == n_betas-1 and l == n_betas - 2):
+            return 0
+        return np.log(1/2)
+         
     # define log of f_ST
     def log_fst(x, i):
         '''
@@ -105,6 +118,9 @@ def simulated_Tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
         # track the visited temperature
         temps_visited[k_current] += 1
 
+        # store the current beta index
+        betas_indice[i] = k_current
+
         # ------ 2. "moving" the state x -------
         std = df_std/np.sqrt(betas[k_current])
         x = x_current + np.random.normal(0, std)
@@ -118,16 +134,16 @@ def simulated_Tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
         # store the x
         X[i] = x_current
 
-        # adjust the pesudo prior weight w
+        # adjust the pesudo prior weight w by Wang-Landsu
         if i > 0 and i < n_burns and (i+1)%freq == 0:
             avg_visit = temps_visited.mean() # average time of visit for each beta/temperature
-            freq_visit = np.where(temps_visited > 1, temps_visited, 1) # find whose visit is 
+            freq_visit = np.where(temps_visited > 0, temps_visited, 1) # find whose visit is 
             # lower than avergae
             w *= avg_visit/freq_visit # scale variously for each temperatrue 
-            w /= w.sum() # normalize it
+            w /= (w.sum()+1e-10) # normalize it
             temps_visited.fill(0) # reset 
     
-    return X[n_burns:]
+    return X[n_burns:], betas_indice[n_burns:]
 
 if __name__ == '__main__':
     pass
