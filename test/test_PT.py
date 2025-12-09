@@ -5,13 +5,23 @@ from scipy.integrate import quad
 from scipy.stats import kstest
 
 def test_V1():
-    ''' V(x) = (x^2-1)^2'''
+    ''' V1(x) = (x^2-1)^2'''
     assert V1(1) == 0
     assert V1(-1) == 0
     assert V1(2) == 9
     assert V1(3) == 64
 
-def test_log_p_V1():
+def test_V2():
+    ''' V(x) = (x^2-1)(x^2-4)(x^2-9)/40'''
+    assert V2(1) == 0
+    assert V2(-1) == 0
+    assert V2(2) == 0
+    assert V2(3) == 0
+    assert np.allclose(V2(1.528), 0.37037)
+    assert np.allclose(V2(-1.528), 0.37037)
+
+
+def test_log_p_V():
     '''log(p(x,bata)) = -beta * V(x)'''
     assert log_p(1, 0.5, V1) == 0
     assert log_p(-1, 0.5, V1) == 0
@@ -32,7 +42,7 @@ def test_generate_betas():
 
     Temps = generate_betas(10,Beta_min, Beta_max)
     for i in range(9):
-        assert Temps[i] <= Temps[i+1]
+        assert Temps[i] >= Temps[i+1]
     
     for i in range(8):
         assert np.allclose(Temps[i+1]/Temps[i], Temps[i+2]/Temps[i+1])

@@ -1,5 +1,4 @@
 import numpy as np
-
 # ===================================================================
 def V1(x):
     '''
@@ -18,25 +17,26 @@ def V2(x):
 def log_p(x, beta, V):
     '''
     log(the target density function p(x,beta) in Double-Well);
-    Here, use log() to make algorithm numerically stable.
+    log() makes algorithm numerically stable.
     log(p(x,beta)) = log(e^{-bata*V(x)}) = -beta*V(x)
     '''
     return -beta * V(x)
 # ===================================================================
 def generate_betas(n, beta_min, beta_max):
     '''
-    Generate an array of n betas(Inverse of Temperature) between beta_min(inverse of 
-    hottest temperature for reference) and beta_max(inverse of coldest temper-
-    ature, for target) by log-spacing.
+    Generate an array of n betas(Inverse of Temperature) from beta_max(inverse of 
+    coldest temperature, for target) to beta_min(inverse of 
+    hottest temperature for reference) by geometric scaling.
     '''
     if n == 1:
         # if need only one ladder, the target beta should be turned 
         return np.array([beta_max], dtype=np.float64)
     
-    # use logspace() to apply log spacing.
-    # here, we use np.e asa bse
-    return np.logspace(np.log(beta_min), np.log(beta_max),
+    # use logspace() to apply geometric scaling.
+    # here, we use np.e as a bse
+    betas = np.logspace(np.log(beta_min), np.log(beta_max),
                        num=n, base=np.e, dtype=np.float64)
+    return betas[::-1]
 # ===================================================================
 
 def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
@@ -65,7 +65,7 @@ def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
     # each row represents a chain of a beta, 
     # each column represents a state of each chain
     chains = np.zeros((n_chains, n_steps))
-    
+
     for t in range(n_steps):
         # 1. --- M-H step --------
         for i in range(n_chains):
@@ -85,8 +85,9 @@ def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
                 states[i] = x
         
         # 2. --- Swap step --------
-        # Picks two adjacent chains i and j=i+1. 
-        # Calculates swap probability. If accepted, swap two state
+        # pick chains i and j=i+1. 
+        # Calculates swap probability. If accepted, swap the state of two chain
+        
         for i in range(n_chains-1):
             beta_i = betas[i]
             beta_j = betas[i+1]
@@ -104,7 +105,7 @@ def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
     
     # we want the coldest chain after burn-in, which is bata_max, which is the last row of
     # the matrix with columns after burn-in.
-    return chains[-1, n_burns:]
+    return chains[0, n_burns:]
     
 
 if __name__ == '__main__':
