@@ -57,13 +57,13 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std):
         raise ValueError('n_burns should be smaller than n_steps!')
     
     n_betas = len(betas) # the number of beta
-    x_current = 0 # initial state X_0
+    x_current = np.random.uniform(-b,b) # initial state X_0
     k_current = 0 # initial index for list 'betas'
 
     # Apply Pesudo-prior weights to ensures all temperatures ladders 
     # are visited equally often
-    # initial them uniformly
-    w = np.ones(n_betas) / n_betas
+    # initial them uniformly and use log to ensure stability
+    log_w = np.full(n_betas,np.log(1/n_betas))
 
     # initial MC chain X
     X = np.zeros(n_steps, dtype=np.float64)
@@ -91,7 +91,7 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std):
         log(f_st) = log(p(x;beta))+log(w_i),
         where w_i is pesudo prior weight for i-th beta
         '''
-        return log_p(x, betas[i], V) + np.log(w[i])
+        return log_p(x, betas[i], V) + log_w[i]
     
     for i in range(n_steps):
         # ----1. "moving" the temperature/beta
@@ -108,7 +108,8 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std):
         # calculate the acceptance ratio
         log_a = min(0, log_fst(x_current, k) + log_r(k, k_current) - 
                     log_fst(x_current, k_current) - log_r(k_current,k))
-        # if accept, update the current k
+        # if accept, update the current 
+            
         if np.log(np.random.rand()) < log_a:
             k_current = k
         
