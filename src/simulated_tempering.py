@@ -62,8 +62,9 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std):
 
     # Apply Pesudo-prior weights to ensures all temperatures ladders 
     # are visited equally often
-    # initial them uniformly and use log to ensure stability
-    log_w = np.full(n_betas,np.log(1/n_betas))
+    # initial them uniformly and normalize it 
+    w = np.ones(n_betas) / n_betas
+    counts = np.zeros(n_betas, dtype=np.float64)
 
     # initial MC chain X
     X = np.zeros(n_steps, dtype=np.float64)
@@ -91,10 +92,19 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std):
         log(f_st) = log(p(x;beta))+log(w_i),
         where w_i is pesudo prior weight for i-th beta
         '''
-        return log_p(x, betas[i], V) + log_w[i]
+        return log_p(x, betas[i], V) + np.log(w[i])
     
     for i in range(n_steps):
         # ----1. "moving" the temperature/beta
+        counts[k_current] += 1
+        if i < n_burns and i > 0 and i % 1000 == 0:
+            avg_count = np.mean(counts)
+            log_w = np.log(w)
+            log_w += 0.1 * (avg_count - counts) / avg_count
+            w = np.exp(log_w)
+            w = w / np.sum(w) # normalize again
+            counts = np.zeros(n_betas, dtype=np.int64) # reset 
+
         if k_current == 0:
             k = 1 # because r(0,1) = 1
         elif k_current == n_betas - 1:

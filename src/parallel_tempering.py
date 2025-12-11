@@ -84,18 +84,20 @@ def parallel_tempering(n_steps, n_burns, betas, b, V, df_std):
                 states[i] = x
         
         # 2. --- Swap step --------
-        # pick chains i and j=i+1. 
-        # Calculates swap probability. If accepted, swap the state of two chain
-        l,m = np.random.choice(n_chains, size=2, replace=False)
-        beta_l = betas[l]
-        beta_m = betas[m]
-        x_l = states[l]
-        x_m = states[m]
-        # criterion is similar to previous, i.e.
-        # = ... = e^(beta_i - beta_j)(V(x_i) - V(x_j))
-        swap_ratio = (beta_l-beta_m)*(V(x_l)-V(x_m))
-        if np.log(np.random.rand()) < min(0.0, swap_ratio):
-            states[l], states[m] = x_m, x_l
+        # improve the previous one by 
+        # iterate over even-odd pairs, then odd-even pairs for balanced swapping
+        for k in range(2):
+            for i in range(k, n_chains - 1, 2):
+                l, m = i, i + 1  # Always adjacent chains
+
+                beta_l = betas[l]
+                beta_m = betas[m]
+                x_l = states[l]
+                x_m = states[m]
+            # swap_ratio = (beta_l-beta_m)*(V(x_l)-V(x_m))
+                swap_ratio = (beta_l-beta_m)*(V(x_l)-V(x_m))
+                if np.log(np.random.rand()) < min(0.0, swap_ratio):
+                    states[l], states[m] = x_m, x_l
         # Appends current states to their respective chains.
         chains[:,t] = states
     
