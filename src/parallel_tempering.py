@@ -26,20 +26,19 @@ def generate_betas(n, beta_min, beta_max):
     '''
     Generate an array of n betas(Inverse of Temperature) from beta_max(inverse of 
     coldest temperature, for target) to beta_min(inverse of 
-    hottest temperature for reference) by geometric scaling.
+    hottest temperature for reference) by logarithmically spacing.
     '''
     if n == 1:
         # if need only one ladder, the target beta should be turned 
         return np.array([beta_max], dtype=np.float64)
     
-    # use logspace() to apply geometric scaling.
-    # here, we use np.e as a bse
-    betas = np.logspace(np.log(beta_min), np.log(beta_max),
-                       num=n, base=np.e, dtype=np.float64)
+    # use logspace() to apply logarithmical scaling.
+    # base is 10.
+    betas = np.logspace(np.log10(beta_min), np.log10(beta_max), num=n)
     return betas[::-1]
 # ===================================================================
 
-def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
+def parallel_tempering(n_steps, n_burns, betas, b, V, df_std):
     '''
     Performs the Parallel Tempering MCMC, 
     tracking results in a 2D array(matrix).
@@ -59,7 +58,7 @@ def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
     if n_steps <= n_burns:
         raise ValueError('n_burns should be smaller than n_steps!')
     # set a initial state x for each beta by uniform distribution.
-    states = np.random.uniform(low=-b, high=b, size=n_chains)
+    states = np.zeros(n_chains)
 
     # initialize a 2D-array to store the chain of each beta
     # each row represents a chain of a beta, 
@@ -87,19 +86,16 @@ def parallel_tempering(n_steps, n_burns, betas, b, V, df_std = 1):
         # 2. --- Swap step --------
         # pick chains i and j=i+1. 
         # Calculates swap probability. If accepted, swap the state of two chain
-        
-        for i in range(n_chains-1):
-            beta_i = betas[i]
-            beta_j = betas[i+1]
-            x_i = states[i]
-            x_j = states[i+1]
-            # criterion is similar to previous, i.e.
-            # = ... = e^(beta_i - beta_j)(V(x_i) - V(x_j))
-            swap_ratio = (beta_i - beta_j)*(V(x_i) - V(x_j))
-
-            if np.log(np.random.rand()) < min(0.0, swap_ratio):
-                states[i], states[i+1] = x_j, x_i
-        
+        l,m = np.random.choice(n_chains, size=2, replace=False)
+        beta_l = betas[l]
+        beta_m = betas[m]
+        x_l = states[l]
+        x_m = states[m]
+        # criterion is similar to previous, i.e.
+        # = ... = e^(beta_i - beta_j)(V(x_i) - V(x_j))
+        swap_ratio = (beta_l-beta_m)*(V(x_l)-V(x_m))
+        if np.log(np.random.rand()) < min(0.0, swap_ratio):
+            states[l], states[m] = x_m, x_l
         # Appends current states to their respective chains.
         chains[:,t] = states
     

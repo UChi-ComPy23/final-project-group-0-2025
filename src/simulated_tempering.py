@@ -35,12 +35,11 @@ def generate_betas(n, beta_min, beta_max):
     
     # use logspace() to apply geometric scaling.
     # here, we use np.e as a bse
-    betas = np.logspace(np.log(beta_min), np.log(beta_max),
-                       num=n, base=np.e, dtype=np.float64)
+    betas = np.logspace(np.log10(beta_min), np.log10(beta_max), num=n)
     return betas[::-1]
 # ===================================================================
 
-def simulated_tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
+def simulated_tempering(n_steps, n_burns, betas, b, V, df_std):
     '''
     Performs the Simulated Tempering MCMC, 
     tracking results in a 1D array.
@@ -58,15 +57,13 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
         raise ValueError('n_burns should be smaller than n_steps!')
     
     n_betas = len(betas) # the number of beta
-    x_current = np.random.uniform(low=-b, high=b) # initial state X_0
+    x_current = 0 # initial state X_0
     k_current = 0 # initial index for list 'betas'
 
     # Apply Pesudo-prior weights to ensures all temperatures ladders 
     # are visited equally often
     # initial them uniformly
     w = np.ones(n_betas) / n_betas
-    # count visited temperature 
-    temps_visited = np.zeros(n_betas)
 
     # initial MC chain X
     X = np.zeros(n_steps, dtype=np.float64)
@@ -115,9 +112,6 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
         if np.log(np.random.rand()) < log_a:
             k_current = k
         
-        # track the visited temperature
-        temps_visited[k_current] += 1
-
         # store the current beta index
         betas_indice[i] = k_current
 
@@ -133,15 +127,6 @@ def simulated_tempering(n_steps, n_burns, betas, b, V, df_std = 1, freq = 1000):
         
         # store the x
         X[i] = x_current
-
-        # adjust the pesudo prior weight w by Wang-Landsu
-        if i > 0 and i < n_burns and (i+1)%freq == 0:
-            avg_visit = temps_visited.mean() # average time of visit for each beta/temperature
-            freq_visit = np.where(temps_visited > 0, temps_visited, 1) # find whose visit is 
-            # lower than avergae
-            w *= avg_visit/freq_visit # scale variously for each temperatrue 
-            w /= (w.sum()+1e-10) # normalize it
-            temps_visited.fill(0) # reset 
     
     return X[n_burns:], betas_indice[n_burns:]
 
