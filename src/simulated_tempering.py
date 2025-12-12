@@ -1,0 +1,145 @@
+import numpy as np
+
+# ===================================================================
+def V1(x):
+    '''
+    The easy potential function V(x) in Double-Well;
+    V(x) = (x^2 - 1)^2
+    '''
+    return (x**2 - 1)**2
+
+def V2(x):
+    '''
+    The complex potential function V(x) in Double-Well;
+    V(x) = (x^2-1)(x^2-4)(x^2-9)/40
+    '''
+    return (x**2-1)*(x**2-4)*((x**2-9)/40)
+# ===================================================================
+def log_p(x, beta, V):
+    '''
+    log(the target density function p(x,beta) in Double-Well);
+    log() makes algorithm numerically stable.
+    log(p(x,beta)) = log(e^{-bata*V(x)}) = -beta*V(x)
+    '''
+    return -beta * V(x)
+# ===================================================================
+def generate_betas(n, beta_min, beta_max):
+    '''
+    Generate an array of n betas(Inverse of Temperature) from beta_max(inverse of 
+    coldest temperature, for target) to beta_min(inverse of 
+    hottest temperature for reference) by geometric scaling.
+    '''
+    if n == 1:
+        # if need only one ladder, the target beta should be turned 
+        return np.array([beta_max], dtype=np.float64)
+    
+    # use logspace() to apply geometric scaling.
+    # here, we use np.e as a bse
+    betas = np.logspace(np.log10(beta_min), np.log10(beta_max), num=n)
+    return betas[::-1]
+# ===================================================================
+
+def simulated_tempering(n_steps, n_burns, betas, b, V, df_std):
+    '''
+    Performs the Simulated Tempering MCMC, 
+    tracking results in a 1D array.
+    finally generate the x_i after burn-in steps
+
+    n_steps: number of steps in each chain of beta
+    n_burn: number of steps for burn-in, smaller than n_steps
+    betas: the arrays of betas(Inverse of Temperature)
+    b: boundary [-b,b] for initial state x
+    V: potential function V(x)
+    df_std: the default standard deviation
+    freq: frequency of adjusting the pesudo prior weights
+    '''
+    if n_steps <= n_burns:
+        raise ValueError('n_burns should be smaller than n_steps!')
+    
+    n_betas = len(betas) # the number of beta
+    x_current = np.random.uniform(-b,b) # initial state X_0
+    k_current = 0 # initial index for list 'betas'
+
+    # Apply Pesudo-prior weights to ensures all temperatures ladders 
+    # are visited equally often
+    # initial them uniformly and normalize it 
+    w = np.ones(n_betas) / n_betas
+    counts = np.zeros(n_betas, dtype=np.float64)
+
+    # initial MC chain X
+    X = np.zeros(n_steps, dtype=np.float64)
+    # track which beta each sample came from
+    betas_indice = np.zeros(n_steps, dtype=np.int64)
+
+    # Define log of r(k,l)
+    def log_r(k,l):
+        '''
+        log of Temperature proposal Markov kernel k(r,l):
+        r(k,k+1) = r(k,k-1) = 1/2
+        r(0,1) = r(n_betas-1, n_betas-2) = 1,
+        where r,l is the index of betas.
+        '''
+        if np.abs(k-l) != 1:
+            return -np.inf
+        if (k == 0 and l == 1) or (k == n_betas-1 and l == n_betas - 2):
+            return 0
+        return np.log(1/2)
+         
+    # define log of f_ST
+    def log_fst(x, i):
+        '''
+        log of joint distribution:
+        log(f_st) = log(p(x;beta))+log(w_i),
+        where w_i is pesudo prior weight for i-th beta
+        '''
+        return log_p(x, betas[i], V) + np.log(w[i])
+    
+    for i in range(n_steps):
+        # ----1. "moving" the temperature/beta
+        counts[k_current] += 1
+        if i < n_burns and i > 0 and i % 1000 == 0:
+            avg_count = np.mean(counts)
+            log_w = np.log(w)
+            log_w += 0.1 * (avg_count - counts) / avg_count
+            w = np.exp(log_w)
+            w = w / np.sum(w) # normalize again
+            counts = np.zeros(n_betas, dtype=np.int64) # reset 
+
+        if k_current == 0:
+            k = 1 # because r(0,1) = 1
+        elif k_current == n_betas - 1:
+            k = n_betas - 2 # because r(n_betas-1, n_betas-2) = 1
+        else:
+            # r(k,k+1) = r(k,k-1) = 1/2
+            if np.random.rand() < 0.5:
+                k = k_current - 1
+            else: 
+                k = k_current + 1
+        # calculate the acceptance ratio
+        log_a = min(0, log_fst(x_current, k) + log_r(k, k_current) - 
+                    log_fst(x_current, k_current) - log_r(k_current,k))
+        # if accept, update the current 
+            
+        if np.log(np.random.rand()) < log_a:
+            k_current = k
+        
+        # store the current beta index
+        betas_indice[i] = k_current
+
+        # ------ 2. "moving" the state x -------
+        std = df_std/np.sqrt(betas[k_current])
+        x = x_current + np.random.normal(0, std)
+        # calculate the acceptance ratio
+        # log(q(z,x)/q(x,z)) = log(1) = 0 because q is symmetric normal distribution
+        log_alpha = min(0, log_fst(x, k_current) - log_fst(x_current, k_current))
+        # if accept, update the current x
+        if np.log(np.random.rand()) < log_alpha:
+            x_current = x
+        
+        # store the x
+        X[i] = x_current
+    
+    return X[n_burns:], betas_indice[n_burns:]
+
+if __name__ == '__main__':
+    pass
