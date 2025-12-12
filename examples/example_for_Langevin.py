@@ -37,49 +37,80 @@ def pi0_sampler():
 def h(x):
     return x
 
-ula = UnadjustedLangevin(
-    gradV = lambda x: gradV_tri(x, beta=1.0),
+ula_bi_beta1 = UnadjustedLangevin(
+    gradV=lambda x: gradV_bi(x, beta=1.0),
     step_size=0.01,
     pi0_sampler=pi0_sampler,
     h=h,
 )
 
+ula_bi_beta20 = UnadjustedLangevin(
+    gradV=lambda x: gradV_bi(x, beta=20.0),
+    step_size=0.01/20.0,
+    pi0_sampler=pi0_sampler,
+    h=h,
+)
 
-def main():
-    # reference value I_ref \approx E[h(X)]
-    N_ref = 200000
-    ref_samples = ula.sample_chain(N_ref)
-    I_ref = np.mean(h(ref_samples))
-    print("Reference value I_ref ≈", I_ref)
+ula_tri_beta1 = UnadjustedLangevin(
+    gradV=lambda x: gradV_tri(x, beta=1.0),
+    step_size=0.01,
+    pi0_sampler=pi0_sampler,
+    h=h,
+)
 
-    # log–log
-    Ns = np.logspace(2, 5, 15, dtype=int)   # 1e2 ~ 1e5
-    M = 10  # taking average to avoid variance
+ula_tri_beta20 = UnadjustedLangevin(
+    gradV=lambda x: gradV_tri(x, beta=20.0),
+    step_size=0.01/20.0,
+    pi0_sampler=pi0_sampler,
+    h=h,
+)
 
+def compute_rmse_curve(ula, Ns, M, I_ref):
     errors = []
-
     for N in Ns:
         ests = []
         for _ in range(M):
             samples = ula.sample_chain(N)
             ests.append(np.mean(h(samples)))
         ests = np.array(ests)
-        rmse = np.sqrt(np.mean((ests - I_ref)**2))
+        rmse = np.sqrt(np.mean((ests - I_ref) ** 2))
         errors.append(rmse)
-        print(f"N={N:6d}, RMSE={rmse:.4e}")
+    return np.array(errors)
 
-    errors = np.array(errors)
+def main():
+    N_ref = 200000
+    Ns = np.logspace(2, 5, 15, dtype=int)
+    M = 10
 
-    # benchmark line C * N^{-1/2}
-    C = errors[0] * np.sqrt(Ns[0])
+    # reference values
+    I_bi_1 = np.mean(h(ula_bi_beta1.sample_chain(N_ref)))
+    I_bi_20 = np.mean(h(ula_bi_beta20.sample_chain(N_ref)))
+    I_tri_1 = np.mean(h(ula_tri_beta1.sample_chain(N_ref)))
+    I_tri_20 = np.mean(h(ula_tri_beta20.sample_chain(N_ref)))
+
+    # RMSE curves
+    err_bi_1 = compute_rmse_curve(ula_bi_beta1, Ns, M, I_bi_1)
+    err_bi_20 = compute_rmse_curve(ula_bi_beta20, Ns, M, I_bi_20)
+    err_tri_1 = compute_rmse_curve(ula_tri_beta1, Ns, M, I_tri_1)
+    err_tri_20 = compute_rmse_curve(ula_tri_beta20, Ns, M, I_tri_20)
+
+    # reference slope
+    C = err_bi_1[0] * np.sqrt(Ns[0])
     ref_line = C / np.sqrt(Ns)
 
     plt.figure(figsize=(7, 5))
-    plt.loglog(Ns, errors, "o-", label="ULA error (RMSE)")
-    plt.loglog(Ns, ref_line, "--", label=r"$C N^{-1/2}$")
+
+    plt.loglog(Ns, err_bi_1, "o-", label=r"Bi-modal, $\beta=1$")
+    plt.loglog(Ns, err_bi_20, "o--", label=r"Bi-modal, $\beta=20$")
+
+    plt.loglog(Ns, err_tri_1, "s-", label=r"Tri-modal, $\beta=1$")
+    plt.loglog(Ns, err_tri_20, "s--", label=r"Tri-modal, $\beta=20$")
+
+    plt.loglog(Ns, ref_line, "k:", label=r"$C N^{-1/2}$")
+
     plt.xlabel(r"$N$")
     plt.ylabel("RMSE")
-    plt.title("ULA error vs N (log-log)")
+    plt.title(r"ULA error vs $N$ for bi- and tri-modal potentials ($\varepsilon = 0.01/\beta$)")
     plt.legend()
     plt.grid(True, which="both", ls=":")
     plt.tight_layout()
